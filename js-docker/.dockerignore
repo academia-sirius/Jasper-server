@@ -1,0 +1,8 @@
+resources/*.zip
+resources/*.exe
+resources/jasperreports-server-cp-*/samples
+resources/jasperreports-server-cp-*/jasperserver.zip
+resources/runtime/*.tar.gz
+resources/runtime/**/logs
+resources/runtime/**/temp
+resources/runtime/**/work

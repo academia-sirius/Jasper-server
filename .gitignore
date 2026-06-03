@@ -3,3 +3,5 @@ init/*.sh
 smtp.env
 js-docker/keystore
 js-docker/license
+js-docker/resources/
+

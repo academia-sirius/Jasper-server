@@ -1,34 +1,37 @@
-version: '3.7'
-
 services:
     jrs-server:
-        image: kershov/jasperserver:7.5.0
+        image: jasperserver:8.0.0
         container_name: jrs-server
         build:
             context: ./js-docker
             dockerfile: Dockerfile
+            pull: false
+            args:
+                JAVA_BASE_IMAGE: openjdk@sha256:b577374a385b86572caad3050b122b6aa6dd911cf37421667d248e9d1c638e44
         volumes:
-            - /var/run/docker.sock:/var/run/docker.sock
             - ./js-docker/license:/usr/local/share/jasperserver/license
             - ./js-docker/keystore:/usr/local/share/jasperserver/keystore
-        env_file: 
+        env_file:
             - ./js-docker/jasperreports-server.env
-            - ./js-docker/smtp.env
         environment:
             - DB_HOST=jrs-postgresql
         depends_on:
-            - jrs-cmdline
-        command: ['/wait-for-container-to-exit.sh', 'jrs-cmdline', '-t' , '30', '--', '/entrypoint-ce.sh', 'run']
+            jrs-cmdline:
+                condition: service_completed_successfully
+        command: ['/entrypoint-ce.sh', 'run']
         ports:
-            - 8080:8080
-            - 8443:8443
+            - 9090:8080
+            - 9443:8443
 
     jrs-cmdline:
-        image: kershov/jasperserver-cmdline:7.5.0
+        image: jasperserver-cmdline:8.0.0
         container_name: jrs-cmdline
         build:
             context: ./js-docker
             dockerfile: Dockerfile-cmdline
+            pull: false
+            args:
+                JAVA_BASE_IMAGE: openjdk@sha256:b577374a385b86572caad3050b122b6aa6dd911cf37421667d248e9d1c638e44
         volumes:
             - ./js-docker/license:/usr/local/share/jasperserver/license
             - ./js-docker/keystore:/usr/local/share/jasperserver/keystore
@@ -38,33 +41,19 @@ services:
             - JRS_LOAD_SAMPLES=false
         depends_on:
             - jrs-postgresql
-        command: ['/wait-for-it.sh', 'jrs-postgresql:5432', '-t' , '30', '--', '/entrypoint-cmdline-ce.sh', 'init']
-        
+        command: ['/wait-for-it.sh', 'jrs-postgresql:5432', '-t', '30', '--', '/entrypoint-cmdline-ce.sh', 'init']
+
     jrs-postgresql:
-        image: postgres:latest
+        image: postgres:12
         container_name: jrs-postgresql
         environment:
             - POSTGRES_USER=postgres
             - POSTGRES_PASSWORD=postgres
         volumes:
             - ./init:/docker-entrypoint-initdb.d
-            - jrs_pgdata:/var/lib/postgresqlql/data
+            - jrs_pgdata:/var/lib/postgresql/data
         ports:
-            - 5432:5432
-        
-    jrs-pgadmin:
-        image: dpage/pgadmin4:latest
-        container_name: jrs-pgadmin
-        environment:
-            PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@pgadmin.org}
-            PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-password}
-        volumes:
-            - jrs_pgadmin:/root/.pgadmin
-        depends_on:
-            - jrs-postgresql
-        ports:
-            - 8888:80
+            - 5434:5432
 
 volumes:
     jrs_pgdata:
-    jrs_pgadmin:

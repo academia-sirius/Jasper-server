@@ -33,7 +33,11 @@ run_jasperserver() {
   config_ports_and_ssl
   
   # Apply SMTP settings
-  apply_smtp_settings
+  if [ ! -z "$SMTP_HOST" ]; then
+    apply_smtp_settings
+  else
+    echo "SMTP_HOST is not set, skipping SMTP configuration."
+  fi
   
   # Apply Security Settings
   apply_security_settings
@@ -76,10 +80,14 @@ config_ports_and_ssl() {
   if "$JRS_HTTPS_ONLY" = "true" ; then
     echo "Setting HTTPS only within JasperReports Server"
     cd $CATALINA_HOME/webapps/jasperserver/WEB-INF
+    if command -v xmlstarlet >/dev/null 2>&1; then
     xmlstarlet ed --inplace \
       -N x="http://java.sun.com/xml/ns/j2ee" -u \
       "//x:security-constraint/x:user-data-constraint/x:transport-guarantee"\
       -v "CONFIDENTIAL" web.xml
+    else
+      echo "Warning: xmlstarlet not installed, skipping HTTPS-only web.xml update"
+    fi
     sed -i "s/=http:\/\//=https:\/\//g" js.quartz.properties
     sed -i "s/8080/${HTTPS_PORT:-8443}/g" js.quartz.properties
   else
@@ -179,13 +187,21 @@ apply_smtp_settings() {
 
 	PATTERN=report.scheduler.mail.sender
 
+	# Provide fallback values if empty to avoid breaking properties
+	local mail_host="${SMTP_HOST:-mail.example.com}"
+	local mail_port="${SMTP_PORT:-25}"
+	local mail_protocol="${SMTP_PROTOCOL:-smtp}"
+	local mail_email="${SMTP_EMAIL:-admin@example.com}"
+	local mail_user="${SMTP_USER:-admin}"
+	local mail_password="${SMTP_PASSWORD:-password}"
+
 	sed -i -r "s|^(report.scheduler.web.deployment.uri=).*$|\1http://127.0.0.1/jasperserver/| ; \
-			 s|^(${PATTERN}.host=).*$|\1${SMTP_HOST}| ; \
-			 s|^(${PATTERN}.username=).*$|\1${SMTP_USER}| ; \
-			 s|^(${PATTERN}.password=).*$|\1${SMTP_PASSWORD}| ; \
-			 s|^(${PATTERN}.from=).*$|\1${SMTP_EMAIL}| ; \
-			 s|^(${PATTERN}.protocol=).*$|\1${SMTP_PROTOCOL}| ; \
-			 s|^(${PATTERN}.port=).*$|\1${SMTP_PORT}|" $MAIL_PROPERTIES
+			 s|^(${PATTERN}.host=).*$|\1${mail_host}| ; \
+			 s|^(${PATTERN}.username=).*$|\1${mail_user}| ; \
+			 s|^(${PATTERN}.password=).*$|\1${mail_password}| ; \
+			 s|^(${PATTERN}.from=).*$|\1${mail_email}| ; \
+			 s|^(${PATTERN}.protocol=).*$|\1${mail_protocol}| ; \
+			 s|^(${PATTERN}.port=).*$|\1${mail_port}|" $MAIL_PROPERTIES
 
 	# Permanent change
 	sed -i -r "s|(<prop key=\"mail.smtp.auth\">)false(</prop>)|\1true\2\n\t\t<prop key=\"mail.smtp.starttls.enable\">true</prop>|" $MAIL_XML
