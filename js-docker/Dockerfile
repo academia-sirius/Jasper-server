@@ -1,6 +1,8 @@
 # Copyright (c) 2020. TIBCO Software Inc.
 # Zero apt: openjdk + Tomcat local + ficheiros JRS.
 
+ARG JAVA_BASE_IMAGE=openjdk@sha256:b577374a385b86572caad3050b122b6aa6dd911cf37421667d248e9d1c638e44
+
 # Downloader stage
 FROM alpine:latest AS downloader
 RUN apk add --no-cache curl unzip tar ca-certificates
@@ -20,7 +22,6 @@ RUN mkdir -p /tmp/jasper \
     && unzip -q jasperserver.war -d jasperserver \
     && rm jasperserver.war
 
-ARG JAVA_BASE_IMAGE=openjdk@sha256:b577374a385b86572caad3050b122b6aa6dd911cf37421667d248e9d1c638e44
 FROM ${JAVA_BASE_IMAGE}
 
 ARG DN_HOSTNAME
