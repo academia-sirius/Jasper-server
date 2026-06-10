@@ -1,32 +1,43 @@
 # Copyright (c) 2020. TIBCO Software Inc.
 # Zero apt: openjdk + local JRS files only.
 
+# Downloader stage
+FROM alpine:latest AS downloader
+RUN apk add --no-cache curl unzip tar ca-certificates
+
+# Download and extract JasperReports CP
+RUN mkdir -p /tmp/jasper \
+    && curl -L https://sourceforge.net/projects/jr-community-installers/files/Server/TIB_js-jrs-cp_8.0.0_bin.zip/download -o /tmp/jasper.zip \
+    && unzip -q /tmp/jasper.zip -d /tmp/jasper \
+    && rm /tmp/jasper.zip \
+    && cd /tmp/jasper/jasperreports-server-cp-8.0.0-bin \
+    && unzip -q jasperserver.war -d jasperserver \
+    && rm jasperserver.war
+
 ARG JAVA_BASE_IMAGE=openjdk@sha256:b577374a385b86572caad3050b122b6aa6dd911cf37421667d248e9d1c638e44
 FROM ${JAVA_BASE_IMAGE}
 
 ARG POSTGRES_JDBC_DRIVER_VERSION
 ARG JASPERREPORTS_SERVER_VERSION
-ARG EXPLODED_INSTALLER_DIRECTORY
 
 ENV POSTGRES_JDBC_DRIVER_VERSION ${POSTGRES_JDBC_DRIVER_VERSION:-42.2.14}
 ENV JASPERREPORTS_SERVER_VERSION ${JASPERREPORTS_SERVER_VERSION:-8.0.0}
-ENV EXPLODED_INSTALLER_DIRECTORY ${EXPLODED_INSTALLER_DIRECTORY:-resources/jasperreports-server-cp-$JASPERREPORTS_SERVER_VERSION-bin}
 
 RUN mkdir -p /usr/src/jasperreports-server
 
-COPY ${EXPLODED_INSTALLER_DIRECTORY}/apache-ant /usr/src/jasperreports-server/apache-ant/
-COPY ${EXPLODED_INSTALLER_DIRECTORY}/buildomatic/js-ant /usr/src/jasperreports-server/buildomatic/
-COPY ${EXPLODED_INSTALLER_DIRECTORY}/buildomatic/js-*.sh /usr/src/jasperreports-server/buildomatic/
-COPY ${EXPLODED_INSTALLER_DIRECTORY}/buildomatic/*.xml /usr/src/jasperreports-server/buildomatic/
-COPY ${EXPLODED_INSTALLER_DIRECTORY}/buildomatic/bin/*.sh /usr/src/jasperreports-server/buildomatic/bin/
-COPY ${EXPLODED_INSTALLER_DIRECTORY}/buildomatic/bin/*.xml /usr/src/jasperreports-server/buildomatic/bin/
-COPY ${EXPLODED_INSTALLER_DIRECTORY}/buildomatic/bin/*.help /usr/src/jasperreports-server/buildomatic/bin/
-COPY ${EXPLODED_INSTALLER_DIRECTORY}/buildomatic/bin/app-server /usr/src/jasperreports-server/buildomatic/bin/app-server/
-COPY ${EXPLODED_INSTALLER_DIRECTORY}/buildomatic/bin/groovy /usr/src/jasperreports-server/buildomatic/bin/groovy/
-COPY ${EXPLODED_INSTALLER_DIRECTORY}/buildomatic/jdbc-dep /usr/src/jasperreports-server/buildomatic/bin/jdbc-dep/
-COPY ${EXPLODED_INSTALLER_DIRECTORY}/buildomatic/install_resources /usr/src/jasperreports-server/buildomatic/install_resources/
-COPY ${EXPLODED_INSTALLER_DIRECTORY}/buildomatic/conf_source /usr/src/jasperreports-server/buildomatic/conf_source/
-COPY ${EXPLODED_INSTALLER_DIRECTORY}/buildomatic/lib /usr/src/jasperreports-server/buildomatic/lib/
+COPY --from=downloader /tmp/jasper/jasperreports-server-cp-8.0.0-bin/apache-ant /usr/src/jasperreports-server/apache-ant/
+COPY --from=downloader /tmp/jasper/jasperreports-server-cp-8.0.0-bin/buildomatic/js-ant /usr/src/jasperreports-server/buildomatic/
+COPY --from=downloader /tmp/jasper/jasperreports-server-cp-8.0.0-bin/buildomatic/js-*.sh /usr/src/jasperreports-server/buildomatic/
+COPY --from=downloader /tmp/jasper/jasperreports-server-cp-8.0.0-bin/buildomatic/*.xml /usr/src/jasperreports-server/buildomatic/
+COPY --from=downloader /tmp/jasper/jasperreports-server-cp-8.0.0-bin/buildomatic/bin/*.sh /usr/src/jasperreports-server/buildomatic/bin/
+COPY --from=downloader /tmp/jasper/jasperreports-server-cp-8.0.0-bin/buildomatic/bin/*.xml /usr/src/jasperreports-server/buildomatic/bin/
+COPY --from=downloader /tmp/jasper/jasperreports-server-cp-8.0.0-bin/buildomatic/bin/*.help /usr/src/jasperreports-server/buildomatic/bin/
+COPY --from=downloader /tmp/jasper/jasperreports-server-cp-8.0.0-bin/buildomatic/bin/app-server /usr/src/jasperreports-server/buildomatic/bin/app-server/
+COPY --from=downloader /tmp/jasper/jasperreports-server-cp-8.0.0-bin/buildomatic/bin/groovy /usr/src/jasperreports-server/buildomatic/bin/groovy/
+COPY --from=downloader /tmp/jasper/jasperreports-server-cp-8.0.0-bin/buildomatic/jdbc-dep /usr/src/jasperreports-server/buildomatic/bin/jdbc-dep/
+COPY --from=downloader /tmp/jasper/jasperreports-server-cp-8.0.0-bin/buildomatic/install_resources /usr/src/jasperreports-server/buildomatic/install_resources/
+COPY --from=downloader /tmp/jasper/jasperreports-server-cp-8.0.0-bin/buildomatic/conf_source /usr/src/jasperreports-server/buildomatic/conf_source/
+COPY --from=downloader /tmp/jasper/jasperreports-server-cp-8.0.0-bin/buildomatic/lib /usr/src/jasperreports-server/buildomatic/lib/
 RUN mkdir -p /usr/src/jasperreports-server/buildomatic/target
 
 COPY scripts /
