@@ -44,12 +44,12 @@ services:
       - JRS_LOAD_SAMPLES=false
     depends_on:
       jrs-postgresql:
-        condition: service_healthy  # Ensures Postgres is fully booted and ready for queries
+        condition: service_healthy  # Garante que o banco subiu e passou no healthcheck
     command:
       - /wait-for-it.sh
       - 'jrs-postgresql:5432'
       - '-t'
-      - '60'                     # Bumped slightly for safety
+      - '60'                     
       - '--'
       - /entrypoint-cmdline-ce.sh
       - init
@@ -59,9 +59,10 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=jasperserver # Make sure this matches your .env configurations
+      - POSTGRES_DB=jasperserver 
     volumes:
-      - './init:/docker-entrypoint-initdb.d'
+      # Modificado para garantir escopo local correto na VPS se a pasta init existir
+      - './js-docker/init:/docker-entrypoint-initdb.d' 
       - 'jrs_pgdata:/var/lib/postgresql/data'
     ports:
       - '5434:5432'
@@ -70,8 +71,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 15s          # Gives extra time for init scripts in /docker-entrypoint-initdb.d to execute
+      start_period: 15s          
 
 volumes:
   jrs_pgdata:
-    name: jrs_pgdata             # Named explicitly to avoid Coolify random prefixing issues
+    name: jrs_pgdata             # Evita prefixos dinâmicos aleatórios do Coolify no volume de dados
