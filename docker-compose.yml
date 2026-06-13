@@ -1,5 +1,4 @@
 version: '3.8'
-
 services:
   jrs-server:
     image: 'jasperserver:8.0.0'
@@ -37,19 +36,19 @@ services:
     volumes:
       - './js-docker/license:/usr/local/share/jasperserver/license'
       - './js-docker/keystore:/usr/local/share/jasperserver/keystore'
-    env_file: 
+    env_file:
       - ./js-docker/jasperreports-server.env
     environment:
       - DB_HOST=jrs-postgresql
       - JRS_LOAD_SAMPLES=false
     depends_on:
       jrs-postgresql:
-        condition: service_healthy  # Garante que o banco subiu e passou no healthcheck
+        condition: service_healthy
     command:
       - /wait-for-it.sh
       - 'jrs-postgresql:5432'
       - '-t'
-      - '60'                     
+      - '90'                  # Aumentado ligeiramente para dar fôlego ao primeiro boot
       - '--'
       - /entrypoint-cmdline-ce.sh
       - init
@@ -59,20 +58,21 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=jasperserver 
+      - POSTGRES_DB=jasperserver  # Garante a criação automática no primeiro boot
     volumes:
-      # Modificado para garantir escopo local correto na VPS se a pasta init existir
-      - './js-docker/init:/docker-entrypoint-initdb.d' 
+      - './js-docker/init:/docker-entrypoint-initdb.d'
       - 'jrs_pgdata:/var/lib/postgresql/data'
     ports:
       - '5434:5432'
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d jasperserver"]
+      test:
+        - CMD-SHELL
+        - 'pg_isready -U postgres -d postgres'  # <-- CORREÇÃO: Testa na base padrão do sistema
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 15s          
+      start_period: 20s                         # Mais tempo para o setup inicial respirar
 
 volumes:
   jrs_pgdata:
-    name: jrs_pgdata             # Evita prefixos dinâmicos aleatórios do Coolify no volume de dados
+    name: jrs_pgdata
