@@ -22,9 +22,7 @@ services:
     depends_on:
       jrs-postgresql:
         condition: service_healthy
-    ports:
-      - '9090:8080'
-      - '9443:8443'
+    # REMOVIDO: ports (O Caddy do Coolify vai gerir o tráfego HTTP/HTTPS)
 
   jrs-postgresql:
     image: 'postgres:12'
@@ -33,17 +31,14 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=jasperserver
     volumes:
-      # Injeta o dump do DBeaver que você salvou na pasta init
       - './js-docker/init:/docker-entrypoint-initdb.d'
       - 'jrs_pgdata:/var/lib/postgresql/data'
-    ports:
-      - '5434:5432'
+    # REMOVIDO: ports (O banco fica isolado na rede interna do Docker)
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
-      # Tempo extra para o Postgres ler os 13MB do dump sem o Coolify achar que ele crashou
       start_period: 45s
 
 volumes:
