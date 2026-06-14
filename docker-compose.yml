@@ -30,8 +30,9 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=jasperserver
     volumes:
+      # Aponta para a pasta onde vais colar o dump de 13MB
       - './js-docker/init:/docker-entrypoint-initdb.d'
-      # ALTERADO PARA v3: Garante um ciclo limpo para ler o dump correto do zero
+      # Volume v3 garante que o Coolify cria uma base de dados limpa e lê o dump novo
       - 'jrs_pgdata_v3:/var/lib/postgresql/data'
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d jasperserver"]
@@ -41,6 +42,5 @@ services:
       start_period: 45s
 
 volumes:
-  # ALTERADO PARA v3
   jrs_pgdata_v3:
     name: jrs_pgdata_v3
