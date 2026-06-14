@@ -22,9 +22,6 @@ services:
     depends_on:
       jrs-postgresql:
         condition: service_healthy
-    command:
-      - /entrypoint-ce.sh
-      - run
     ports:
       - '9090:8080'
       - '9443:8443'
