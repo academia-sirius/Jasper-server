@@ -22,7 +22,7 @@ services:
     depends_on:
       jrs-postgresql:
         condition: service_healthy
-    # REMOVIDO: ports (O Caddy do Coolify vai gerir o tráfego HTTP/HTTPS)
+    # Sem a diretiva 'command' conflituosa e sem 'ports' expostas (O Caddy trata do tráfego)
 
   jrs-postgresql:
     image: 'postgres:12'
@@ -31,16 +31,19 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=jasperserver
     volumes:
+      # Pasta onde está o dump gerado no DBeaver
       - './js-docker/init:/docker-entrypoint-initdb.d'
-      - 'jrs_pgdata:/var/lib/postgresql/data'
-    # REMOVIDO: ports (O banco fica isolado na rede interna do Docker)
+      # Alterado para v2 para descartar o lixo do volume antigo corrompido
+      - 'jrs_pgdata_v2:/var/lib/postgresql/data'
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      # CORRIGIDO: Agora testa a prontidão diretamente no banco correto (jasperserver)
+      test: ["CMD-SHELL", "pg_isready -U postgres -d jasperserver"]
       interval: 10s
       timeout: 5s
       retries: 5
+      # 45 segundos de margem para o Postgres processar e injetar o dump completo
       start_period: 45s
 
 volumes:
-  jrs_pgdata:
-    name: jrs_pgdata
+  jrs_pgdata_v2:
+    name: jrs_pgdata_v2
