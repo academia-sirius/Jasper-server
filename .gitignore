@@ -1,8 +1,8 @@
-init/*.sql
+# Comentado para permitir que o dump vá para o Git
+# init/*.sql
 init/*.sh
 smtp.env
 js-docker/keystore
 js-docker/license
 js-docker/resources/
 js-docker/TIB_js-jrs-cp_8.0.0_bin/
-
