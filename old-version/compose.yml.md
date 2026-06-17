@@ -30,10 +30,10 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=jasperserver
     volumes:
-      # CAMINHO ABSOLUTO: Lê o dump diretamente do disco rígido da VPS, ignorando falhas do Coolify
-      - '/data/jasper-init/jasper_backup.sql:/docker-entrypoint-initdb.d/jasper_backup.sql:ro'
-      # Volume isolado (jrs_pgdata_final) para garantir inicialização limpa com o dump
-      - 'jrs_pgdata_final:/var/lib/postgresql/data'
+      # MAPEAMENTO ESPECÍFICO DO FICHEIRO: Evita pastas vazias criadas pelo Docker se o caminho falhar
+      - './js-docker/init/jasper_backup.sql:/docker-entrypoint-initdb.d/jasper_backup.sql:ro'
+      # Subimos para v4 para limpar o estado antigo e forçar a leitura do dump
+      - 'jrs_pgdata_v4:/var/lib/postgresql/data'
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d jasperserver"]
       interval: 10s
@@ -42,5 +42,5 @@ services:
       start_period: 45s
 
 volumes:
-  jrs_pgdata_final:
-    name: jrs_pgdata_final
+  jrs_pgdata_v4:
+    name: jrs_pgdata_v4
