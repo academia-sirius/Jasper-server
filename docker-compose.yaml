@@ -43,10 +43,15 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-jasperserver}
     volumes:
-      - ./js-docker/init:/docker-entrypoint-initdb.d:ro
+      - type: bind
+        source: ./js-docker/init/jasper_backup.sql
+        target: /docker-entrypoint-initdb.d/001-jasper_backup.sql
+        read_only: true
+        bind:
+          create_host_path: false
       - jrs_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\" && psql -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\" -tAc \"select to_regclass('public.jiresourcefolder') is not null\" | grep -q t"]
       interval: 10s
       timeout: 5s
       retries: 10
