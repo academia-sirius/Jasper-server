@@ -31,6 +31,9 @@ run_jasperserver() {
   # If JRS_HTTPS_ONLY is set, sets JasperReports Server to
   # run only in HTTPS. Update keystore and password if given
   config_ports_and_ssl
+
+  # Honor Caddy/Coolify reverse proxy headers.
+  config_reverse_proxy_headers
   
   # Apply SMTP settings
   if [ ! -z "$SMTP_HOST" ]; then
@@ -59,7 +62,7 @@ config_phantomjs() {
       classes/jasperreports.properties
     sed -i -r "s/(.*)(phantomjs.binary=)(.*)/\2$PATH_PHANTOM/" \
       js.config.properties
-  elif [[ "$(ls -A /usr/local/share/phantomjs)" ]]; then
+  elif [[ -d "/usr/local/share/phantomjs" && "$(ls -A /usr/local/share/phantomjs)" ]]; then
     echo "Warning: /usr/local/bin/phantomjs is not executable, \
 but /usr/local/share/phantomjs exists. PhantomJS \
 is not correctly configured."
@@ -77,7 +80,7 @@ config_ports_and_ssl() {
   # in JasperReports Server.
   JRS_HTTPS_ONLY=${JRS_HTTPS_ONLY:-false}
 
-  if "$JRS_HTTPS_ONLY" = "true" ; then
+  if [ "$JRS_HTTPS_ONLY" = "true" ] ; then
     echo "Setting HTTPS only within JasperReports Server"
     cd $CATALINA_HOME/webapps/jasperserver/WEB-INF
     if command -v xmlstarlet >/dev/null 2>&1; then
@@ -101,7 +104,7 @@ config_ports_and_ssl() {
 		-exec readlink -f {} \;`
 	  
 	  # update the keystore and password if there
-	  if [[ $CERT_PATH_FILES -ne 0 ]]; then
+	  if [[ -n "$CERT_PATH_FILES" ]]; then
 		  # will only be one, if at all
 		  for keystore in $CERT_PATH_FILES; do
 			if [[ -f "$keystore" ]]; then
@@ -110,7 +113,7 @@ config_ports_and_ssl() {
 			  xmlstarlet ed --inplace --subnode "/Server/Service/Connector[@port='${HTTPS_PORT:-8443}']" --type elem \
 					--var connector-ssl '$prev' \
 				--update '$connector-ssl' --type attr -n port -v "${HTTPS_PORT:-8443}" \
-				--update '$connector-ssl' --type attr -n keystoreFile  -v "/root/${keystore}" \
+				--update '$connector-ssl' --type attr -n keystoreFile  -v "/root/${keystore##*/}" \
 				--update '$connector-ssl' --type attr -n keystorePass  -v "${KS_PASSWORD:-changeit}" \
 				${CATALINA_HOME}/conf/server.xml
 			  echo "Deployed SSL ${keystore} keystore"
@@ -130,6 +133,22 @@ config_ports_and_ssl() {
   # end if $SSL_CERT_PATH exists.
   fi
 
+}
+
+config_reverse_proxy_headers() {
+  local server_xml="$CATALINA_HOME/conf/server.xml"
+
+  if ! grep -q "RemoteIpValve" "$server_xml"; then
+    xmlstarlet ed --inplace \
+      -s "/Server/Service/Engine/Host" -t elem -n "Valve" -v "" \
+      -i "/Server/Service/Engine/Host/Valve[not(@*)][last()]" -t attr -n className -v "org.apache.catalina.valves.RemoteIpValve" \
+      -i "/Server/Service/Engine/Host/Valve[not(@remoteIpHeader)][@className='org.apache.catalina.valves.RemoteIpValve']" -t attr -n remoteIpHeader -v "x-forwarded-for" \
+      -i "/Server/Service/Engine/Host/Valve[not(@protocolHeader)][@className='org.apache.catalina.valves.RemoteIpValve']" -t attr -n protocolHeader -v "x-forwarded-proto" \
+      -i "/Server/Service/Engine/Host/Valve[not(@protocolHeaderHttpsValue)][@className='org.apache.catalina.valves.RemoteIpValve']" -t attr -n protocolHeaderHttpsValue -v "https" \
+      -i "/Server/Service/Engine/Host/Valve[not(@requestAttributesEnabled)][@className='org.apache.catalina.valves.RemoteIpValve']" -t attr -n requestAttributesEnabled -v "true" \
+      "$server_xml"
+    echo "Configured Tomcat RemoteIpValve for reverse proxy headers."
+  fi
 }
 
 apply_customizations() {
@@ -194,14 +213,15 @@ apply_smtp_settings() {
 	local mail_email="${SMTP_EMAIL:-admin@example.com}"
 	local mail_user="${SMTP_USER:-admin}"
 	local mail_password="${SMTP_PASSWORD:-password}"
+	local public_url="${JRS_PUBLIC_URL:-http://127.0.0.1/jasperserver/}"
 
-	sed -i -r "s|^(report.scheduler.web.deployment.uri=).*$|\1http://127.0.0.1/jasperserver/| ; \
+	sed -i -r "s|^(report.scheduler.web.deployment.uri=).*$|\1${public_url}| ; \
 			 s|^(${PATTERN}.host=).*$|\1${mail_host}| ; \
 			 s|^(${PATTERN}.username=).*$|\1${mail_user}| ; \
 			 s|^(${PATTERN}.password=).*$|\1${mail_password}| ; \
 			 s|^(${PATTERN}.from=).*$|\1${mail_email}| ; \
 			 s|^(${PATTERN}.protocol=).*$|\1${mail_protocol}| ; \
-			 s|^(${PATTERN}.port=).*$|\1${mail_port}|" $MAIL_PROPERTIES
+			 s|^(${PATTERN}.port=).*$|\1${mail_port}|" "$MAIL_PROPERTIES"
 
 	# Permanent change
 	sed -i -r "s|(<prop key=\"mail.smtp.auth\">)false(</prop>)|\1true\2\n\t\t<prop key=\"mail.smtp.starttls.enable\">true</prop>|" $MAIL_XML

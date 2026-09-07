@@ -2,6 +2,8 @@
 # init/*.sql
 init/*.sh
 smtp.env
+.env
+!.env.example
 js-docker/keystore
 js-docker/license
 js-docker/resources/

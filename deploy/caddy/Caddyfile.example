@@ -1,0 +1,10 @@
+# Caddy in the same Docker network as the Coolify application.
+reports.example.com {
+    reverse_proxy jrs-server:8080
+}
+
+# If Caddy runs directly on the VPS host, publish the app port first, then use:
+#
+# reports.example.com {
+#     reverse_proxy 127.0.0.1:9090
+# }

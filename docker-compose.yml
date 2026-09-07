@@ -1,46 +1,58 @@
-version: '3.8'
-
 services:
   jrs-server:
-    image: 'jasperserver:8.0.0'
+    image: ${JRS_IMAGE:-jasperserver:8.0.0}
     build:
       context: ./js-docker
       dockerfile: Dockerfile
-      pull: false
+      pull: true
       args:
-        JAVA_BASE_IMAGE: 'openjdk@sha256:b577374a385b86572caad3050b122b6aa6dd911cf37421667d248e9d1c638e44'
-    volumes:
-      - './js-docker/license:/usr/local/share/jasperserver/license'
-      - './js-docker/keystore:/usr/local/share/jasperserver/keystore'
+        JAVA_BASE_IMAGE: ${JAVA_BASE_IMAGE:-eclipse-temurin:11-jdk-jammy}
+        JASPERREPORTS_SERVER_VERSION: ${JASPERREPORTS_SERVER_VERSION:-8.0.0}
+        POSTGRES_JDBC_DRIVER_VERSION: ${POSTGRES_JDBC_DRIVER_VERSION:-42.2.14}
     env_file:
       - ./js-docker/jasperreports-server.env
     environment:
-      - DB_HOST=jrs-postgresql
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - DB_NAME=jasperserver
+      DB_HOST: jrs-postgresql
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DB_NAME: ${POSTGRES_DB:-jasperserver}
+      HTTP_PORT: 8080
+      HTTPS_PORT: 8443
+      JRS_HTTPS_ONLY: "false"
+      JRS_PUBLIC_URL: ${JRS_PUBLIC_URL:-http://localhost:9090/jasperserver/}
+    volumes:
+      - jrs_keystore:/usr/local/share/jasperserver/keystore
+    expose:
+      - "8080"
     depends_on:
       jrs-postgresql:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/jasperserver/login.html >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 5m
+    restart: unless-stopped
 
   jrs-postgresql:
-    image: 'postgres:12'
+    image: postgres:12
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=jasperserver
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-jasperserver}
     volumes:
-      # CAMINHO ABSOLUTO: Lê o dump diretamente do disco rígido da VPS, ignorando falhas do Coolify
-      - '/data/jasper-init/jasper_backup.sql:/docker-entrypoint-initdb.d/jasper_backup.sql:ro'
-      # Volume isolado (jrs_pgdata_final) para garantir inicialização limpa com o dump
-      - 'jrs_pgdata_final:/var/lib/postgresql/data'
+      - ./js-docker/init:/docker-entrypoint-initdb.d:ro
+      - jrs_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d jasperserver"]
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
       start_period: 45s
+    restart: unless-stopped
 
 volumes:
-  jrs_pgdata_final:
-    name: jrs_pgdata_final
+  jrs_keystore:
+  jrs_pgdata:

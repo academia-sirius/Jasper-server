@@ -1,0 +1,4 @@
+services:
+  jrs-server:
+    ports:
+      - "${JRS_HTTP_BIND:-127.0.0.1}:${JRS_HTTP_PORT:-9090}:8080"

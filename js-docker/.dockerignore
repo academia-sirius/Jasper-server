@@ -6,3 +6,7 @@ resources/runtime/*.tar.gz
 resources/runtime/**/logs
 resources/runtime/**/temp
 resources/runtime/**/work
+TIB_js-jrs-cp_8.0.0_bin/
+init/
+license/
+keystore/
