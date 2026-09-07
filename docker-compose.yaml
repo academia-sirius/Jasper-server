@@ -54,8 +54,8 @@ services:
       test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\" && psql -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\" -tAc \"select to_regclass('public.jiresourcefolder') is not null\" | grep -q t"]
       interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 45s
+      retries: 60
+      start_period: 10m
     restart: unless-stopped
 
 volumes:
