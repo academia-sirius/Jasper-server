@@ -1,8 +1,8 @@
 # Apenas PostgreSQL no Docker (imagem postgres:12 ja em cache local).
 # Use com o JasperReports instalado pelo .exe no Windows.
 #
-# Subir:  docker compose -f docker-compose.db-only.yml up -d
-# Parar:  docker compose -f docker-compose.db-only.yml down
+# Subir:  docker compose -f docker-compose.db-only.yaml up -d
+# Parar:  docker compose -f docker-compose.db-only.yaml down
 
 services:
     jrs-postgresql:

@@ -13,13 +13,13 @@ proxy, especialmente em ambientes como Coolify e Caddy.
 
 O projeto inclui:
 
-- `docker-compose.yml`: stack principal com JasperReports Server e PostgreSQL.
+- `docker-compose.yaml`: stack principal com JasperReports Server e PostgreSQL.
 - `js-docker/Dockerfile`: imagem do JasperReports Server sobre Tomcat 9 e Java
   11.
 - `js-docker/init/jasper_backup.sql`: dump usado na primeira inicializacao do
   banco.
 - `deploy/caddy/Caddyfile.example`: exemplo de proxy reverso com Caddy.
-- `docker-compose.caddy-host.yml`: override para publicar a aplicacao apenas em
+- `docker-compose.caddy-host.yaml`: override para publicar a aplicacao apenas em
   `localhost`, quando o Caddy roda direto no host da VPS.
 - `.env.example`: exemplo das variaveis esperadas para deploy.
 
@@ -78,7 +78,7 @@ Observacoes:
   sempre sobrescrever com uma senha forte.
 - `JRS_PUBLIC_URL` deve terminar com `/jasperserver/`.
 - Quando o Caddy roda no host, `JRS_HTTP_BIND` e `JRS_HTTP_PORT` podem ser
-  usados pelo override `docker-compose.caddy-host.yml`.
+  usados pelo override `docker-compose.caddy-host.yaml`.
 
 ## Deploy no Coolify
 
@@ -113,7 +113,7 @@ Quando o Caddy nao esta na mesma rede Docker da aplicacao, publicar o
 JasperReports apenas em `localhost`:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.caddy-host.yml up -d --build
+docker compose -f docker-compose.yaml -f docker-compose.caddy-host.yaml up -d --build
 ```
 
 Exemplo de Caddy:
@@ -135,7 +135,7 @@ http://localhost:9090/jasperserver/
 Subir a stack:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.caddy-host.yml up -d --build
+docker compose -f docker-compose.yaml -f docker-compose.caddy-host.yaml up -d --build
 ```
 
 Acompanhar logs:
@@ -154,7 +154,7 @@ Apagar dados e reinicializar pelo dump:
 
 ```bash
 docker compose down -v
-docker compose -f docker-compose.yml -f docker-compose.caddy-host.yml up -d --build
+docker compose -f docker-compose.yaml -f docker-compose.caddy-host.yaml up -d --build
 ```
 
 ## Backup e restore

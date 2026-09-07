@@ -41,7 +41,7 @@ reports.example.com {
 Se o Caddy estiver instalado diretamente no host da VPS, suba com o override que publica somente em localhost:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.caddy-host.yml up -d --build
+docker compose -f docker-compose.yaml -f docker-compose.caddy-host.yaml up -d --build
 ```
 
 Nesse caso o Caddy pode usar:
@@ -55,7 +55,7 @@ reports.example.com {
 ## Rodar localmente
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.caddy-host.yml up -d --build
+docker compose -f docker-compose.yaml -f docker-compose.caddy-host.yaml up -d --build
 ```
 
 URL local:
