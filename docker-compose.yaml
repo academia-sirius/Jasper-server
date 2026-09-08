@@ -14,9 +14,9 @@ services:
     environment:
       DB_HOST: jrs-postgresql
       DB_PORT: 5432
-      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_USER: postgres
       DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      DB_NAME: ${POSTGRES_DB:-jasperserver}
+      DB_NAME: jasperserver
       HTTP_PORT: 8080
       HTTPS_PORT: 8443
       JRS_HTTPS_ONLY: "false"
@@ -39,9 +39,9 @@ services:
   jrs-postgresql:
     image: postgres:12
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-jasperserver}
+      POSTGRES_DB: jasperserver
     volumes:
       - type: bind
         source: ./js-docker/init/jasper_backup.sql

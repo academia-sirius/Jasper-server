@@ -66,9 +66,7 @@ Inicializacao do banco:
 Variaveis minimas para producao:
 
 ```env
-POSTGRES_USER=postgres
 POSTGRES_PASSWORD=use-uma-senha-longa
-POSTGRES_DB=jasperserver
 JRS_PUBLIC_URL=https://reports.example.com/jasperserver/
 ```
 
@@ -76,6 +74,8 @@ Observacoes:
 
 - `POSTGRES_PASSWORD=postgres` existe apenas como padrao local. Em producao,
   sempre sobrescrever com uma senha forte.
+- `POSTGRES_USER` e `POSTGRES_DB` ficam fixos como `postgres` e `jasperserver`
+  porque o dump usa esses nomes internamente.
 - `JRS_PUBLIC_URL` deve terminar com `/jasperserver/`.
 - Quando o Caddy roda no host, `JRS_HTTP_BIND` e `JRS_HTTP_PORT` podem ser
   usados pelo override `docker-compose.caddy-host.yaml`.
@@ -162,13 +162,13 @@ docker compose -f docker-compose.yaml -f docker-compose.caddy-host.yaml up -d --
 Backup recomendado do banco:
 
 ```bash
-docker compose exec jrs-postgresql pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" > jasper_backup.sql
+docker compose exec jrs-postgresql pg_dump -U postgres jasperserver > jasper_backup.sql
 ```
 
 Restore em um banco ja existente:
 
 ```bash
-docker compose exec -T jrs-postgresql psql -U "$POSTGRES_USER" "$POSTGRES_DB" < jasper_backup.sql
+docker compose exec -T jrs-postgresql psql -U postgres jasperserver < jasper_backup.sql
 ```
 
 Antes de restaurar em producao, parar agendamentos e garantir uma copia do

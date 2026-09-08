@@ -17,11 +17,13 @@ O banco e inicializado pelo dump em `js-docker/init/jasper_backup.sql`. O Postgr
 3. Defina as variaveis de ambiente:
 
 ```env
-POSTGRES_USER=postgres
 POSTGRES_PASSWORD=use-uma-senha-longa
-POSTGRES_DB=jasperserver
 JRS_PUBLIC_URL=https://reports.example.com/jasperserver/
 ```
+
+Nao defina `POSTGRES_USER` ou `POSTGRES_DB` no Coolify para este compose. O dump
+em `js-docker/init/jasper_backup.sql` foi gerado com owner `postgres` e banco
+`jasperserver`; trocar esses valores faz a importacao inicial falhar.
 
 4. Faca o deploy.
 5. Acesse `https://reports.example.com/jasperserver/`.
@@ -82,6 +84,10 @@ Apagar dados e reinicializar pelo dump:
 docker compose down -v
 ```
 
+Se o primeiro deploy falhar durante a inicializacao do PostgreSQL, remova o
+volume `jrs_pgdata` no Coolify antes de fazer novo deploy. O Postgres so executa
+o dump quando o volume esta vazio.
+
 ## Credenciais iniciais do JasperReports
 
 As credenciais dependem do dump importado. Em instalacoes CE minimas, os usuarios padrao costumam ser:
@@ -96,5 +102,7 @@ Troque as senhas apos o primeiro login.
 ## Observacoes de producao
 
 - `POSTGRES_PASSWORD=postgres` existe apenas como default local; sobrescreva no Coolify.
+- `POSTGRES_USER` e `POSTGRES_DB` ficam fixos como `postgres` e `jasperserver`
+  porque o dump usa esses nomes internamente.
 - `JRS_PUBLIC_URL` deve terminar com `/jasperserver/`, principalmente se usar agendamento de relatorios por email.
 - JasperReports 8.0.0 e antigo. Antes de expor publicamente, mantenha Caddy com TLS, restrinja acesso quando possivel e avalie atualizacao futura do Jasper/PostgreSQL.
