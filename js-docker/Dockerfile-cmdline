@@ -7,10 +7,11 @@ ARG JAVA_BASE_IMAGE=openjdk@sha256:b577374a385b86572caad3050b122b6aa6dd911cf3742
 FROM alpine:latest AS downloader
 RUN apk add --no-cache curl unzip tar ca-certificates
 
-# Download and extract JasperReports CP
-RUN mkdir -p /tmp/jasper \
-    && curl -L https://sourceforge.net/projects/jr-community-installers/files/Server/TIB_js-jrs-cp_8.0.0_bin.zip/download -o /tmp/jasper.zip \
-    && unzip -q /tmp/jasper.zip -d /tmp/jasper \
+# CONFIGURAÇÃO CORRIGIDA: Usando o arquivo local vindo do Git LFS
+RUN mkdir -p /tmp/jasper
+COPY TIB_js-jrs-cp_8.0.0_bin.zip /tmp/jasper.zip
+
+RUN unzip -q /tmp/jasper.zip -d /tmp/jasper \
     && rm /tmp/jasper.zip \
     && cd /tmp/jasper/jasperreports-server-cp-8.0.0-bin \
     && unzip -q jasperserver.war -d jasperserver \

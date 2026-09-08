@@ -1,21 +1,22 @@
-# Copyright (c) 2020. TIBCO Software Inc.
-# Zero apt: openjdk + Tomcat local + ficheiros JRS.
+# JasperReports Server CE 8.0.0 on Tomcat 9.
 
-ARG JAVA_BASE_IMAGE=openjdk@sha256:b577374a385b86572caad3050b122b6aa6dd911cf37421667d248e9d1c638e44
+ARG JAVA_BASE_IMAGE=eclipse-temurin:11-jdk-jammy
+ARG TOMCAT_VERSION=9.0.85
 
-# Downloader stage
-FROM alpine:latest AS downloader
-RUN apk add --no-cache curl unzip tar ca-certificates
+FROM alpine:3.20 AS downloader
 
-# Download and extract Tomcat
+ARG TOMCAT_VERSION
+
+RUN apk add --no-cache ca-certificates curl tar unzip
+
 RUN mkdir -p /tmp/tomcat \
-    && curl -L https://archive.apache.org/dist/tomcat/tomcat-9/v9.0.85/bin/apache-tomcat-9.0.85.tar.gz -o /tmp/tomcat.tar.gz \
+    && curl -fSL "https://archive.apache.org/dist/tomcat/tomcat-9/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz" -o /tmp/tomcat.tar.gz \
     && tar -xzf /tmp/tomcat.tar.gz -C /tmp/tomcat \
     && rm /tmp/tomcat.tar.gz
 
-# Download and extract JasperReports CP
+COPY TIB_js-jrs-cp_8.0.0_bin.zip /tmp/jasper.zip
+
 RUN mkdir -p /tmp/jasper \
-    && curl -L https://sourceforge.net/projects/jr-community-installers/files/Server/TIB_js-jrs-cp_8.0.0_bin.zip/download -o /tmp/jasper.zip \
     && unzip -q /tmp/jasper.zip -d /tmp/jasper \
     && rm /tmp/jasper.zip \
     && cd /tmp/jasper/jasperreports-server-cp-8.0.0-bin \
@@ -24,59 +25,44 @@ RUN mkdir -p /tmp/jasper \
 
 FROM ${JAVA_BASE_IMAGE}
 
-ARG DN_HOSTNAME
-ARG KS_PASSWORD
-ARG HTTP_PORT
-ARG HTTPS_PORT
-ARG POSTGRES_JDBC_DRIVER_VERSION
-ARG JASPERREPORTS_SERVER_VERSION
+ARG POSTGRES_JDBC_DRIVER_VERSION=42.2.14
+ARG JASPERREPORTS_SERVER_VERSION=8.0.0
+ARG TOMCAT_VERSION=9.0.85
 
-ENV DN_HOSTNAME ${DN_HOSTNAME:-localhost.localdomain}
-ENV KS_PASSWORD ${KS_PASSWORD:-changeit}
-ENV HTTP_PORT ${HTTP_PORT:-8080}
-ENV HTTPS_PORT ${HTTPS_PORT:-8443}
-ENV POSTGRES_JDBC_DRIVER_VERSION ${POSTGRES_JDBC_DRIVER_VERSION:-42.2.14}
-ENV JASPERREPORTS_SERVER_VERSION ${JASPERREPORTS_SERVER_VERSION:-8.0.0}
-ENV CATALINA_HOME=/usr/local/tomcat
-ENV PATH=${CATALINA_HOME}/bin:${PATH}
+ENV CATALINA_HOME=/usr/local/tomcat \
+    BUILDOMATIC_HOME=/usr/src/jasperreports-server/buildomatic \
+    MOUNTS_HOME=/usr/local/share/jasperserver \
+    POSTGRES_JDBC_DRIVER_VERSION=${POSTGRES_JDBC_DRIVER_VERSION} \
+    JASPERREPORTS_SERVER_VERSION=${JASPERREPORTS_SERVER_VERSION} \
+    HTTP_PORT=8080 \
+    HTTPS_PORT=8443
 
-RUN mkdir -p /usr/src/jasperreports-server ${CATALINA_HOME}
+ENV PATH="${CATALINA_HOME}/bin:/usr/src/jasperreports-server/apache-ant/bin:${PATH}"
 
-COPY --from=downloader /tmp/tomcat/apache-tomcat-9.0.85/ ${CATALINA_HOME}/
-COPY --from=downloader /tmp/jasper/jasperreports-server-cp-8.0.0-bin/jasperserver ${CATALINA_HOME}/webapps/jasperserver/
-COPY --from=downloader /tmp/jasper/jasperreports-server-cp-8.0.0-bin/TIB* /usr/src/jasperreports-server/
-COPY --from=downloader /tmp/jasper/jasperreports-server-cp-8.0.0-bin/apache-ant /usr/src/jasperreports-server/apache-ant/
-COPY --from=downloader /tmp/jasper/jasperreports-server-cp-8.0.0-bin/buildomatic/js-ant /usr/src/jasperreports-server/buildomatic/
-COPY --from=downloader /tmp/jasper/jasperreports-server-cp-8.0.0-bin/buildomatic/build.xml /usr/src/jasperreports-server/buildomatic/
-COPY --from=downloader /tmp/jasper/jasperreports-server-cp-8.0.0-bin/buildomatic/bin/*.xml /usr/src/jasperreports-server/buildomatic/bin/
-COPY --from=downloader /tmp/jasper/jasperreports-server-cp-8.0.0-bin/buildomatic/bin/app-server /usr/src/jasperreports-server/buildomatic/bin/app-server/
-COPY --from=downloader /tmp/jasper/jasperreports-server-cp-8.0.0-bin/buildomatic/bin/groovy /usr/src/jasperreports-server/buildomatic/bin/groovy/
-COPY --from=downloader /tmp/jasper/jasperreports-server-cp-8.0.0-bin/buildomatic/conf_source /usr/src/jasperreports-server/buildomatic/conf_source/
-COPY --from=downloader /tmp/jasper/jasperreports-server-cp-8.0.0-bin/buildomatic/lib /usr/src/jasperreports-server/buildomatic/lib/
-RUN mkdir -p /usr/src/jasperreports-server/buildomatic/target
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends ca-certificates curl git jq unzip xmlstarlet; \
+    rm -rf /var/lib/apt/lists/*; \
+    mkdir -p "${CATALINA_HOME}" /usr/src/jasperreports-server "${MOUNTS_HOME}/keystore"
 
+COPY --from=downloader "/tmp/tomcat/apache-tomcat-${TOMCAT_VERSION}/" "${CATALINA_HOME}/"
+COPY --from=downloader /tmp/jasper/jasperreports-server-cp-8.0.0-bin/apache-ant/ /usr/src/jasperreports-server/apache-ant/
+COPY --from=downloader /tmp/jasper/jasperreports-server-cp-8.0.0-bin/buildomatic/ /usr/src/jasperreports-server/buildomatic/
+COPY --from=downloader /tmp/jasper/jasperreports-server-cp-8.0.0-bin/jasperserver/ "${CATALINA_HOME}/webapps/jasperserver/"
+
+COPY assets/jdbc/postgresql-${POSTGRES_JDBC_DRIVER_VERSION}.jar /usr/src/jasperreports-server/buildomatic/conf_source/db/postgresql/jdbc/
+COPY assets/libs/*.jar "${CATALINA_HOME}/webapps/jasperserver/WEB-INF/lib/"
 COPY scripts /
-COPY assets/libs/ ${CATALINA_HOME}/webapps/jasperserver/WEB-INF/lib/
-COPY assets/jdbc/postgresql-${POSTGRES_JDBC_DRIVER_VERSION}.jar \
-    /usr/src/jasperreports-server/buildomatic/conf_source/db/postgresql/jdbc/
+COPY scripts/index.jsp "${CATALINA_HOME}/webapps/ROOT/index.jsp"
 
-RUN sed -i 's/\r$//' /*.sh && \
-    chmod +x /*.sh && \
-    rm -rf ${CATALINA_HOME}/webapps/ROOT \
-           ${CATALINA_HOME}/webapps/docs \
-           ${CATALINA_HOME}/webapps/examples \
-           ${CATALINA_HOME}/webapps/host-manager \
-           ${CATALINA_HOME}/webapps/manager && \
-    mkdir ${CATALINA_HOME}/webapps/ROOT && \
-    mv /index.jsp ${CATALINA_HOME}/webapps/ROOT/ && \
-    cp -R /buildomatic /usr/src/jasperreports-server/buildomatic && \
-    rm -rf /buildomatic && \
-    chmod +x /usr/src/jasperreports-server/buildomatic/js-* && \
-    chmod +x /usr/src/jasperreports-server/apache-ant/bin/* && \
-    chmod +x ${CATALINA_HOME}/bin/*.sh && \
-    java -version
+RUN set -eux; \
+    sed -i 's/\r$//' /*.sh /usr/src/jasperreports-server/buildomatic/js-*.sh /usr/src/jasperreports-server/buildomatic/bin/*.sh; \
+    chmod +x /*.sh /usr/src/jasperreports-server/buildomatic/js-* /usr/src/jasperreports-server/buildomatic/bin/*.sh /usr/src/jasperreports-server/apache-ant/bin/* "${CATALINA_HOME}/bin/"*.sh; \
+    rm -rf "${CATALINA_HOME}/webapps/docs" "${CATALINA_HOME}/webapps/examples" "${CATALINA_HOME}/webapps/host-manager" "${CATALINA_HOME}/webapps/manager"; \
+    java -version; \
+    catalina.sh version
 
-EXPOSE ${HTTP_PORT} ${HTTPS_PORT}
+EXPOSE 8080
 
 ENTRYPOINT ["/entrypoint-ce.sh"]
 CMD ["run"]

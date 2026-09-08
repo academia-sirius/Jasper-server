@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  jrs-server:
+    image: 'jasperserver:8.0.0'
+    build:
+      context: ./js-docker
+      dockerfile: Dockerfile
+      pull: false
+      args:
+        JAVA_BASE_IMAGE: 'openjdk@sha256:b577374a385b86572caad3050b122b6aa6dd911cf37421667d248e9d1c638e44'
+    volumes:
+      - './js-docker/license:/usr/local/share/jasperserver/license'
+      - './js-docker/keystore:/usr/local/share/jasperserver/keystore'
+    env_file:
+      - ./js-docker/jasperreports-server.env
+    environment:
+      - DB_HOST=jrs-postgresql
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=jasperserver
+    depends_on:
+      jrs-postgresql:
+        condition: service_healthy
+
+  jrs-postgresql:
+    image: 'postgres:12'
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=jasperserver
+    volumes:
+      # MAPEAMENTO ESPECÍFICO DO FICHEIRO: Evita pastas vazias criadas pelo Docker se o caminho falhar
+      - './js-docker/init/jasper_backup.sql:/docker-entrypoint-initdb.d/jasper_backup.sql:ro'
+      # Subimos para v4 para limpar o estado antigo e forçar a leitura do dump
+      - 'jrs_pgdata_v4:/var/lib/postgresql/data'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d jasperserver"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+
+volumes:
+  jrs_pgdata_v4:
+    name: jrs_pgdata_v4

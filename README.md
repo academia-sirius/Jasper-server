@@ -1,140 +1,108 @@
-# JasperReports Server 8.0.0 Community Edition for Docker
+# JasperReports Server CE 8.0.0
 
-[English version below]
+Projeto Docker para executar JasperReports Server Community Edition 8.0.0 com PostgreSQL. A configuracao foi ajustada para deploy no Coolify atras de Caddy/reverse proxy.
 
----
+## Servicos
 
-## 🇧🇷 Versão em Português
+- `jrs-server`: Tomcat 9 + JasperReports Server em HTTP interno na porta `8080`.
+- `jrs-postgresql`: PostgreSQL com volume persistente `jrs_pgdata`.
+- `jrs_keystore`: volume persistente para as chaves geradas pelo JasperReports.
 
-Este projeto disponibiliza o **TIBCO JasperReports Server Community Edition (versão 8.0.0)** rodando em containers Docker junto com o banco de dados **PostgreSQL 12**.
+O banco e inicializado pelo dump em `js-docker/init/jasper_backup.sql`. O Postgres so executa arquivos de `/docker-entrypoint-initdb.d` quando o volume de dados esta vazio; se voce trocar o dump depois, recrie o volume do banco ou restaure manualmente.
 
----
+## Deploy no Coolify
 
-### 🔄 Fluxo de Funcionamento Completo (Ciclo de Vida do Projeto)
+1. Crie a aplicacao como Docker Compose apontando para este repositorio.
+2. Configure o dominio no Coolify/Caddy apontando para o servico `jrs-server` na porta `8080`.
+3. Defina as variaveis de ambiente:
 
-Para entender o ciclo de vida completo do projeto, desde o download inicial até a execução do servidor, o projeto segue o seguinte fluxo estruturado:
-
-```mermaid
-graph TD
-    A[jrs-download.sh] -->|1. Baixa & Extrai JasperReports 8.0.0| B(Estrutura de Pastas Pronta)
-    B -->|2. docker-compose up --build| C(Construção das Imagens Docker)
-    C -->|3. Inicializa Banco| D[jrs-postgresql]
-    D -->|4. Espera conexão pronta| E[jrs-cmdline]
-    E -->|5. Cria banco e tabelas se não existirem| F(Criação de Tabelas do Jasper)
-    F -->|6. Container jrs-cmdline Finaliza com Sucesso| G[jrs-server]
-    G -->|7. Aplica Patches SMTP/Segurança| H(Tomcat Inicia na porta 9090)
+```env
+POSTGRES_PASSWORD=use-uma-senha-longa
+JRS_PUBLIC_URL=https://reports.example.com/jasperserver/
 ```
 
-#### Passo 1: Download e Preparação (`jrs-download.sh`)
-* **O que faz:** O primeiro passo baixa a distribuição oficial binária do JasperReports Server Community Edition (`8.0.0`) e a descompacta na pasta de recursos locais (`resources/`). Isso fornece os arquivos necessários para o Tomcat e as ferramentas de banco de dados (`buildomatic`).
+Nao defina `POSTGRES_USER` ou `POSTGRES_DB` no Coolify para este compose. O dump
+em `js-docker/init/jasper_backup.sql` foi gerado com owner `postgres` e banco
+`jasperserver`; trocar esses valores faz a importacao inicial falhar.
 
-#### Passo 2: Construção das Imagens (`docker-compose build`)
-Quando você roda a construção do ambiente, o Docker gera duas imagens personalizadas baseadas em Java:
-* **`jasperserver-cmdline:8.0.0`**: Contém o utilitário `buildomatic` e scripts utilitários.
-* **`jasperserver:8.0.0`**: Contém a instalação do Apache Tomcat 9 e os arquivos do JasperReports Server prontos para implantação.
+4. Faca o deploy.
+5. Acesse `https://reports.example.com/jasperserver/`.
 
-#### Passo 3: Ordem de Execução e Dependências (`docker-compose up -d`)
-Quando o comando é executado, os containers iniciam respeitando dependências estritas:
-1. **Banco de Dados (`jrs-postgresql`):** Inicializa o PostgreSQL 12 na porta local `5434`.
-2. **Inicializador do Banco (`jrs-cmdline`):**
-   * Aguarda (via script `wait-for-it.sh`) até que o banco de dados PostgreSQL esteja aceitando conexões.
-   * Conecta ao Postgres e checa se o banco `jasperserver` já existe.
-   * **Se o banco não existir:** Executa as tarefas `create-js-db`, `init-js-db-ce` e `import-minimal-ce` para criar o banco de dados, criar o esquema de tabelas do JasperReports e carregar os dados mínimos de inicialização.
-   * **Se o banco já existir:** Ele pula a criação para proteger seus dados de serem sobrescritos.
-   * **Finalização:** Uma vez concluídas estas tarefas, o container encerra suas atividades com sucesso e passa para o estado de **`Exited (0)`**.
-3. **Servidor Tomcat (`jrs-server`):**
-   * Só inicia quando o container `jrs-cmdline` é encerrado com sucesso (`service_completed_successfully`).
-   * Executa o script `entrypoint-ce.sh`.
-   * Verifica se existem zips de customização ou licenças para aplicar.
-   * Executa a rotina `deploy-webapp-ce` do buildomatic para copiar as configurações de fonte de dados e arquivos web para dentro do diretório `/usr/local/tomcat/webapps/jasperserver`.
-   * Executa as rotinas de segurança e as de e-mail (SMTP) (ajustadas por nós para evitar falhas se as variáveis de ambiente estiverem ausentes).
-   * Executa o servidor Tomcat (`catalina.sh run`) mantendo o servidor web de relatórios ativo na porta local **`9090`**.
+Nao exponha o PostgreSQL para a internet. O Compose principal nao publica a porta `5432` no host.
 
----
+## Caddy
 
-### 🏗️ Arquitetura e Portas
+Se o Caddy estiver na mesma rede Docker/Coolify, use o exemplo em `deploy/caddy/Caddyfile.example`:
 
-* **`jrs-postgresql` (PostgreSQL 12):**
-  * **Porta interna:** `5432` | **Porta exposta (Host):** `5434`.
-  * **Credenciais padrão:** Usuário `postgres` e senha `postgres`.
-* **`jrs-cmdline` (Banco Inicializador):**
-  * Executa a preparação do banco de dados e finaliza automaticamente.
-* **`jrs-server` (JasperReports Server / Tomcat 9):**
-  * Executa o JasperReports Server ativo.
-  * **Porta interna:** `8080` | **Porta exposta (Host):** `9090`.
+```caddyfile
+reports.example.com {
+    reverse_proxy jrs-server:8080
+}
+```
 
----
+Se o Caddy estiver instalado diretamente no host da VPS, suba com o override que publica somente em localhost:
 
-### ⚙️ Configurações de Variáveis de Ambiente
-
-As configurações principais ficam no arquivo [js-docker/jasperreports-server.env](file:///c:/Users/EUGENIO/Downloads/jasperreports/js-docker/jasperreports-server.env).
-
-#### Configuração de E-mail (SMTP)
-Crie o arquivo `smtp.env` se quiser habilitar notificações de e-mail nos agendamentos:
 ```bash
-cp js-docker/smtp.env.example js-docker/smtp.env
+docker compose -f docker-compose.yaml -f docker-compose.caddy-host.yaml up -d --build
 ```
-*Se a variável `SMTP_HOST` não estiver definida em seu ambiente, o inicializador automaticamente ignorará a configuração customizada de SMTP, mantendo a porta de e-mail padrão do JasperReports ativa para evitar erros de inicialização.*
 
----
+Nesse caso o Caddy pode usar:
 
-### 🚀 Comandos de Execução Básica
+```caddyfile
+reports.example.com {
+    reverse_proxy 127.0.0.1:9090
+}
+```
 
-#### Inicializar e construir o projeto pela primeira vez
+## Rodar localmente
+
 ```bash
-./jrs-download.sh
-docker-compose up -d --build
+docker compose -f docker-compose.yaml -f docker-compose.caddy-host.yaml up -d --build
 ```
 
-#### Verificar logs em tempo real do servidor
+URL local:
+
+```text
+http://localhost:9090/jasperserver/
+```
+
+Logs:
+
 ```bash
-docker-compose logs -f jrs-server
+docker compose logs -f jrs-server
 ```
 
-#### Parar os serviços (mantendo os dados do banco intactos)
+Parar mantendo dados:
+
 ```bash
-docker-compose down
+docker compose down
 ```
 
-#### Limpeza total (Apagar banco de dados e recomeçar do zero)
+Apagar dados e reinicializar pelo dump:
+
 ```bash
-docker-compose down -v
+docker compose down -v
 ```
 
----
+Se o primeiro deploy falhar durante a inicializacao do PostgreSQL, remova o
+volume `jrs_pgdata` no Coolify antes de fazer novo deploy. O Postgres so executa
+o dump quando o volume esta vazio.
 
-### 🔑 Credenciais de Acesso
+## Credenciais iniciais do JasperReports
 
-* **Interface Web do JasperReports:**
-  * **Link:** [http://localhost:9090/jasperserver](http://localhost:9090/jasperserver)
-  * **Administrador:** Usuário `jasperadmin` / Senha `jasperadmin`
-  * **Usuário comum:** Usuário `joeuser` / Senha `joeuser`
+As credenciais dependem do dump importado. Em instalacoes CE minimas, os usuarios padrao costumam ser:
 
-* **Conexão ao PostgreSQL (DBeaver, pgAdmin, etc.):**
-  * **Host:** `localhost`
-  * **Porta:** `5434`
-  * **Usuário:** `postgres`
-  * **Senha:** `postgres`
-  * **Banco de dados:** `jasperserver`
+```text
+jasperadmin / jasperadmin
+joeuser / joeuser
+```
 
----
+Troque as senhas apos o primeiro login.
 
-## 🇺🇸 English Version
+## Observacoes de producao
 
-This project allows you to run **TIBCO JasperReports Server Community Edition (version 8.0.0)** running in Docker containers with a **PostgreSQL 12** database.
-
-### 🔄 Project Operations & Lifecycle
-
-The lifecycle follows this execution pipeline:
-1. **Initial download (`jrs-download.sh`):** Fetches the official JasperReports zip file and extracts it to the `resources/` folder.
-2. **Image Building (`docker-compose build`):** Creates Java-based Docker images for database setup (`jasperserver-cmdline`) and web hosting (`jasperserver`).
-3. **Execution & Startup Sequence (`docker-compose up`):**
-   * **`jrs-postgresql`** boots up.
-   * **`jrs-cmdline`** waits for PostgreSQL, connects, creates the schema/database `jasperserver` if not present, and then **safely exits (status `Exited (0)`)**.
-   * **`jrs-server`** waits for `jrs-cmdline` to finish successfully, builds the war structure, runs entrypoint configurations (including our custom SMTP and security patches), and boots Apache Tomcat on local port **`9090`**.
-
-### 🔑 Credentials & Access
-
-* **URL:** [http://localhost:9090/jasperserver](http://localhost:9090/jasperserver)
-* **Admin Login:** User `jasperadmin` / Password `jasperadmin`
-* **PostgreSQL Port:** `5434` (User: `postgres` / Pass: `postgres` / DB: `jasperserver`)
+- `POSTGRES_PASSWORD=postgres` existe apenas como default local; sobrescreva no Coolify.
+- `POSTGRES_USER` e `POSTGRES_DB` ficam fixos como `postgres` e `jasperserver`
+  porque o dump usa esses nomes internamente.
+- `JRS_PUBLIC_URL` deve terminar com `/jasperserver/`, principalmente se usar agendamento de relatorios por email.
+- JasperReports 8.0.0 e antigo. Antes de expor publicamente, mantenha Caddy com TLS, restrinja acesso quando possivel e avalie atualizacao futura do Jasper/PostgreSQL.

@@ -43,7 +43,7 @@ export JAVA_MAX_RAM_PCT=${JAVA_MAX_RAM_PERCENTAGE:-80.0}
 
 # Add Java options to suppress Groovy related warning message for Jaspersoft running Java 11
 
-export JAVA_OPTS="$JAVA_OPTS -XX:-UseContainerSupport -XX:MinRAMPercentage=$JAVA_MIN_RAM_PCT -XX:MaxRAMPercentage=$JAVA_MAX_RAM_PCT  @/java11.opts"
+export JAVA_OPTS="$JAVA_OPTS -XX:+UseContainerSupport -XX:MinRAMPercentage=$JAVA_MIN_RAM_PCT -XX:MaxRAMPercentage=$JAVA_MAX_RAM_PCT @/java11.opts"
 
 # additional options for Ant used by buildomatic
 export ANT_OPTS="$ANT_OPTS @/java11.opts"
@@ -64,8 +64,8 @@ initialize_deploy_properties() {
 
   echo "Current keystore files in $KEYSTORE_PATH"
   # echo $JRSKS_PATH_FILES
-  if [ ! -d ${KEYSTORE_PATH} ] ; then
-    mkdir ${KEYSTORE_PATH}
+  if [ ! -d "${KEYSTORE_PATH}" ] ; then
+    mkdir -p "${KEYSTORE_PATH}"
   fi
 
   if [ ! -f "$KEYSTORE_PATH/.jrsks" -o ! -f "$KEYSTORE_PATH/.jrsksp" ]; then

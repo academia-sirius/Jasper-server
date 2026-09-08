@@ -1,0 +1,63 @@
+services:
+  jrs-server:
+    image: ${JRS_IMAGE:-jasperserver:8.0.0}
+    build:
+      context: ./js-docker
+      dockerfile: Dockerfile
+      pull: true
+      args:
+        JAVA_BASE_IMAGE: ${JAVA_BASE_IMAGE:-eclipse-temurin:11-jdk-jammy}
+        JASPERREPORTS_SERVER_VERSION: ${JASPERREPORTS_SERVER_VERSION:-8.0.0}
+        POSTGRES_JDBC_DRIVER_VERSION: ${POSTGRES_JDBC_DRIVER_VERSION:-42.2.14}
+    env_file:
+      - ./js-docker/jasperreports-server.env
+    environment:
+      DB_HOST: jrs-postgresql
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DB_NAME: jasperserver
+      HTTP_PORT: 8080
+      HTTPS_PORT: 8443
+      JRS_HTTPS_ONLY: "false"
+      JRS_PUBLIC_URL: ${JRS_PUBLIC_URL:-http://localhost:9090/jasperserver/}
+    volumes:
+      - jrs_keystore:/usr/local/share/jasperserver/keystore
+    expose:
+      - "8080"
+    depends_on:
+      jrs-postgresql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/jasperserver/login.html >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 5m
+    restart: unless-stopped
+
+  jrs-postgresql:
+    image: postgres:12
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: jasperserver
+    volumes:
+      - type: bind
+        source: ./js-docker/init/jasper_backup.sql
+        target: /docker-entrypoint-initdb.d/001-jasper_backup.sql
+        read_only: true
+        bind:
+          create_host_path: false
+      - jrs_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\" && psql -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\" -tAc \"select to_regclass('public.jiresourcefolder') is not null\" | grep -q t"]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 10m
+    restart: unless-stopped
+
+volumes:
+  jrs_keystore:
+  jrs_pgdata:
